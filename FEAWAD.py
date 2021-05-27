@@ -42,6 +42,7 @@ from sklearn.model_selection import train_test_split
 MAX_INT = np.iinfo(np.int32).max
 data_format = 0
 
+
 def auc(y_true, y_pred):
     ptas = tf.stack([binary_PTA(y_true,y_pred,k) for k in np.linspace(0, 1, 1000)],axis=0)
     pfas = tf.stack([binary_PFA(y_true,y_pred,k) for k in np.linspace(0, 1, 1000)],axis=0)
@@ -390,11 +391,19 @@ def run_devnet(args):
             batch_size = args.batch_size    
             nb_batch = args.nb_batch  
 
-            AEmodel_name = "./AE_model/auto_encoder_arrhythmia_normalization"+".h5"
+            AEmodel = deviation_network(input_shape,2,None,0)  #auto encoder model 
+            print('pre-training start...')
+            AEmodel_name = "auto_encoder_normalization"+".h5"
+            ae_checkpointer = ModelCheckpoint(AEmodel_name, monitor='loss', verbose=0,
+                                           save_best_only = True, save_weights_only = True)            
+            AEmodel.fit_generator(auto_encoder_batch_generator_sup(train_x, inlier_indices, batch_size, nb_batch, rng),
+                                             steps_per_epoch = nb_batch,
+                                             epochs = 100,
+                                             callbacks=[ae_checkpointer])
 
-
+            print('load pre-training model...')
             dev_model = deviation_network(input_shape, 4, AEmodel_name, 0)
-
+            print('end-to-end training start...')
             dev_model_name = "./model/devnet_" + filename + "_" + str(args.cont_rate) + "cr_"  + str(args.batch_size) +"bs_" + str(args.known_outliers) + "ko_" + str(network_depth) +"d.h5"
             checkpointer = ModelCheckpoint(dev_model_name, monitor='loss', verbose=0,
                                            save_best_only = True, save_weights_only = True) 
